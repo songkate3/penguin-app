@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Reading Coach: Emperor Penguins</title>
+    <!-- FontAwesome for Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* (기존 스타일과 동일, 일부 게임 모드 스타일 유지) */
         :root {
             --primary: #6c5ce7;
             --secondary: #a29bfe;
@@ -16,100 +16,429 @@
             --text-color: #2d3436;
             --highlight: #ffeaa7;
             --game-btn: #00cec9;
-            --game-bg: #2c3e50;
+            --game-bg: #2c3e50; /* 남극 밤 배경 */
             --danger: #ff7675;
             --safe: #55efc4;
         }
+
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif; margin: 0; padding: 0; display: flex; height: 100vh; background-color: var(--bg-color); color: var(--text-color); overflow: hidden; }
-        
-        /* Layout */
-        #reading-panel { width: 45%; padding: 40px; background-color: var(--panel-bg); border-right: 1px solid #b2bec3; overflow-y: auto; display: flex; flex-direction: column; }
-        #interaction-panel { width: 55%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #f5f6fa 0%, #dcdde1 100%); position: relative; transition: background 0.5s; }
-        #interaction-panel.game-mode { background: linear-gradient(135deg, #2c3e50 0%, #000000 100%); color: white; }
 
-        /* Reading Panel Elements */
-        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #f1f2f6; }
+        body {
+            font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        /* --- SPLASH SCREEN (INTRO) --- */
+        #splash-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.6s ease-out;
+        }
+        
+        .splash-content {
+            text-align: center;
+            color: white;
+            animation: zoomIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .splash-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            letter-spacing: -1px;
+        }
+
+        .splash-subtitle {
+            font-size: 1.5rem;
+            opacity: 0.9;
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+
+        .splash-icon {
+            font-size: 6rem;
+            margin-bottom: 30px;
+            display: inline-block;
+            animation: bounce 2s infinite;
+        }
+
+        #enter-btn {
+            padding: 15px 50px;
+            font-size: 1.3rem;
+            border: none;
+            border-radius: 50px;
+            background: white;
+            color: var(--primary);
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        #enter-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+        }
+
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* --- LEFT PANEL: READING PASSAGE --- */
+        #reading-panel {
+            width: 45%;
+            padding: 40px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid #b2bec3;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f2f6;
+        }
+
         h2 { margin: 0; color: var(--primary); font-size: 1.8rem; }
-        .passage-content { font-size: 1.2rem; line-height: 1.9; color: #444; text-align: justify; }
-        .toggle-btn { background: white; border: 2px solid var(--primary); color: var(--primary); padding: 6px 15px; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 0.85rem; transition: 0.3s; }
+
+        .toggle-btn {
+            background: white;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            padding: 6px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+            transition: 0.3s;
+        }
+        .toggle-btn:hover { background: #f1f2f6; }
         .toggle-btn.active { background: var(--primary); color: white; }
-        #korean-trans { display: none; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; font-size: 1rem; color: #636e72; line-height: 1.6; border-left: 4px solid var(--primary); }
-        .sent { border-radius: 4px; padding: 2px 0; transition: background-color 0.5s ease; }
-        .sent.highlight { background-color: var(--highlight); box-shadow: 0 0 8px rgba(253, 203, 110, 0.6); font-weight: 700; border-bottom: 2px solid var(--accent); }
 
-        /* Intro Splash */
-        #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #6c5ce7, #a29bfe); display: flex; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.6s ease-out; }
-        .splash-content { text-align: center; color: white; animation: zoomIn 0.8s; }
-        .splash-title { font-size: 3.5rem; font-weight: 800; margin-bottom: 10px; text-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .splash-subtitle { font-size: 1.5rem; opacity: 0.9; margin-bottom: 40px; }
-        .splash-icon { font-size: 6rem; margin-bottom: 30px; display: inline-block; animation: bounce 2s infinite; }
-        #enter-btn { padding: 15px 50px; font-size: 1.3rem; border: none; border-radius: 50px; background: white; color: var(--primary); font-weight: bold; cursor: pointer; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: transform 0.2s; }
-        #enter-btn:hover { transform: translateY(-3px); }
+        .passage-content {
+            font-size: 1.2rem;
+            line-height: 1.9;
+            color: #444;
+            text-align: justify;
+        }
 
-        /* Game HUD & UI */
-        #setup-bar { position: absolute; top: 20px; background: rgba(255, 255, 255, 0.95); padding: 10px 20px; border-radius: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); display: flex; gap: 10px; z-index: 100; transition: opacity 0.5s; }
-        #api-key-input { border: 1px solid #dfe6e9; padding: 10px 15px; border-radius: 20px; outline: none; width: 220px; font-family: monospace; }
-        #ready-btn { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        
-        #game-hud { display: none; width: 90%; justify-content: space-between; margin-bottom: 20px; background: rgba(255, 255, 255, 0.1); padding: 10px 20px; border-radius: 15px; backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.2); animation: slideDown 0.5s; }
+        /* Highlight Animation */
+        .sent {
+            border-radius: 4px;
+            padding: 2px 0;
+            transition: background-color 0.5s ease;
+        }
+        .sent.highlight {
+            background-color: var(--highlight);
+            box-shadow: 0 0 8px rgba(253, 203, 110, 0.6);
+            font-weight: 700;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        #korean-trans {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 1rem;
+            color: #636e72;
+            line-height: 1.6;
+            border-left: 4px solid var(--primary);
+        }
+
+        /* --- RIGHT PANEL: AI INTERACTION --- */
+        #interaction-panel {
+            width: 55%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f5f6fa 0%, #dcdde1 100%);
+            position: relative;
+            transition: background 0.5s;
+        }
+
+        /* Game Mode Theme */
+        #interaction-panel.game-mode {
+            background: linear-gradient(135deg, #2c3e50 0%, #000000 100%);
+            color: white;
+        }
+
+        /* Game HUD */
+        #game-hud {
+            display: none;
+            width: 90%;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.2);
+            animation: slideDown 0.5s;
+        }
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
         .hud-item { font-size: 1.1rem; font-weight: bold; color: #fab1a0; }
         .hud-value { color: white; margin-left: 5px; }
 
-        /* AI Visuals */
-        #ai-interface { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
-        #ai-visual-container { position: relative; width: 160px; height: 160px; margin-bottom: 20px; }
-        #ai-avatar { width: 100%; height: 100%; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 100px; box-shadow: 0 10px 30px rgba(108, 92, 231, 0.2); transition: all 0.3s; position: relative; z-index: 2; }
-        
-        #ai-avatar.survival-mode { background: #34495e; color: white; border: 5px solid var(--game-btn); }
-        #ai-avatar.survival-mode.danger { color: var(--danger); border-color: var(--danger); animation: eggCrack 0.5s ease-in-out; }
-        #ai-avatar.survival-mode.safe { color: var(--safe); border-color: var(--safe); box-shadow: 0 0 40px var(--safe); animation: eggGlow 1.5s infinite alternate; }
-        #ai-avatar.survival-mode.hatching { border: 5px solid var(--safe); background-color: #e3fdf5; color: #2d3436; animation: hatchPop 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55); }
+        /* API Setup Bar - Simplified */
+        #setup-bar {
+            position: absolute;
+            top: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 25px;
+            border-radius: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+            transition: opacity 0.5s;
+        }
+        /* Input field removed */
+        #ready-btn { 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 12px 30px; 
+            border-radius: 25px; 
+            cursor: pointer; 
+            font-weight: bold;
+            font-size: 1rem;
+            box-shadow: 0 4px 10px rgba(108, 92, 231, 0.3);
+            transition: all 0.2s;
+        }
+        #ready-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(108, 92, 231, 0.4); }
 
-        .ring { position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 50%; border: 3px solid transparent; z-index: 1; }
-        #ai-avatar.speaking + .ring { border-color: var(--accent); animation: pulse-ring 1.5s infinite; }
-        #ai-avatar.thinking { border: 3px solid #b2bec3; animation: pulse-gray 1.5s infinite; }
+        /* AI Interface Container (Hidden initially) */
+        #ai-interface {
+            display: none; /* Hidden until login */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
 
-        /* Bubble & Text */
-        .bubble-box { width: 85%; max-width: 600px; background: white; border-radius: 20px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); min-height: 120px; display: flex; flex-direction: column; justify-content: center; text-align: center; position: relative; margin-bottom: 20px; }
-        .game-mode .bubble-box { background: rgba(255, 255, 255, 0.9); border: 2px solid var(--game-btn); }
-        #ai-text { font-size: 1.35rem; color: #2d3436; font-weight: 600; line-height: 1.4; margin-bottom: 10px; white-space: pre-line; }
-        #ai-kor-hint { font-size: 1.1rem; color: #636e72; display: none; border-top: 1px dashed #dfe6e9; padding-top: 15px; margin-top: 10px; }
-        .hint-toggle-small { position: absolute; bottom: 10px; right: 20px; font-size: 0.8rem; color: #b2bec3; background: none; border: none; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        /* AI Avatar & Visuals */
+        #ai-visual-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin-bottom: 20px;
+        }
+
+        #ai-avatar {
+            width: 100%; height: 100%;
+            background: white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 100px; /* Bigger Egg */
+            box-shadow: 0 10px 30px rgba(108, 92, 231, 0.2);
+            transition: all 0.3s;
+            position: relative;
+            z-index: 2;
+        }
         
-        /* Mic & Controls */
-        #user-stt-display { height: 30px; width: 80%; text-align: center; color: var(--primary); font-weight: bold; font-size: 1.1rem; margin-bottom: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .game-mode #user-stt-display { color: #fab1a0; }
-        #mic-btn { width: 80px; height: 80px; border-radius: 50%; background: var(--primary); color: white; border: none; font-size: 30px; cursor: pointer; box-shadow: 0 8px 20px rgba(108, 92, 231, 0.4); transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
-        #mic-btn:disabled { background: #b2bec3; cursor: not-allowed; box-shadow: none; }
-        #mic-btn.active { background: #ff7675; animation: bounce 1s infinite; }
-        #next-btn { padding: 15px 40px; font-size: 1.2rem; border: none; border-radius: 50px; background: var(--safe); color: #2d3436; font-weight: bold; cursor: pointer; box-shadow: 0 10px 20px rgba(85, 239, 196, 0.4); animation: bounce 2s infinite; }
+        /* Specific Styles for Survival Mode */
+        #ai-avatar.survival-mode {
+            background: #34495e;
+            color: white;
+        }
         
         /* Animations */
-        @keyframes bounce { 0%, 100% {transform: scale(1);} 50% {transform: scale(1.1);} }
-        @keyframes zoomIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes eggCrack { 0% { transform: rotate(0deg); } 25% { transform: rotate(-10deg); } 75% { transform: rotate(10deg); } 100% { transform: rotate(0deg); } }
-        @keyframes eggGlow { from { box-shadow: 0 0 10px var(--safe); transform: scale(1); } to { box-shadow: 0 0 40px var(--safe); transform: scale(1.05); } }
-        @keyframes hatchPop { 0% { transform: scale(0.8); opacity: 0; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes pulse-ring { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.3); opacity: 0; } }
-        @keyframes pulse-gray { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        #ai-avatar.survival-mode.danger {
+            color: var(--danger);
+            animation: eggCrack 0.5s ease-in-out;
+        }
+        
+        #ai-avatar.survival-mode.safe {
+            color: var(--safe);
+            box-shadow: 0 0 40px var(--safe);
+            animation: eggGlow 1.5s infinite alternate;
+        }
 
-        .hidden { display: none !important; opacity: 0; pointer-events: none; }
+        /* Hatching Penguin Animation */
+        #ai-avatar.survival-mode.hatching {
+            border: 5px solid var(--safe);
+            background-color: #e3fdf5;
+            color: #2d3436;
+            animation: hatchPop 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        @keyframes eggCrack {
+            0% { transform: rotate(0deg) translateX(0); }
+            20% { transform: rotate(-10deg) translateX(-5px); }
+            40% { transform: rotate(10deg) translateX(5px); }
+            60% { transform: rotate(-10deg) translateX(-5px); }
+            80% { transform: rotate(10deg) translateX(5px); }
+            100% { transform: rotate(0deg) translateX(0); }
+        }
+        
+        @keyframes eggGlow {
+            from { box-shadow: 0 0 10px var(--safe); transform: scale(1); }
+            to { box-shadow: 0 0 40px var(--safe); transform: scale(1.05); }
+        }
+
+        @keyframes hatchPop {
+            0% { transform: scale(0.8) rotate(0deg); opacity: 0; }
+            50% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        /* Status Rings */
+        .ring {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            z-index: 1;
+        }
+        
+        #ai-avatar.speaking + .ring {
+            border-color: var(--accent);
+            animation: pulse-ring 1.5s infinite;
+        }
+        #ai-avatar.thinking {
+            border: 3px solid #b2bec3;
+            animation: pulse-gray 1.5s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+        @keyframes pulse-gray {
+            0% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.5; }
+        }
+
+        /* Bubble */
+        .bubble-box {
+            width: 85%; max-width: 600px;
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            min-height: 120px;
+            display: flex; flex-direction: column; justify-content: center;
+            text-align: center;
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        /* Game Mode Bubble */
+        .game-mode .bubble-box {
+            background: rgba(255, 255, 255, 0.9);
+            border: 2px solid var(--game-btn);
+        }
+
+        #ai-text { 
+            font-size: 1.35rem; 
+            color: #2d3436; 
+            font-weight: 600; 
+            line-height: 1.4; 
+            margin-bottom: 10px;
+            white-space: pre-line; 
+        }
+        
+        #ai-kor-hint {
+            font-size: 1.1rem; color: #636e72;
+            display: none; /* Hidden by default */
+            border-top: 1px dashed #dfe6e9;
+            padding-top: 15px; margin-top: 10px;
+        }
+
+        .hint-toggle-small {
+            position: absolute; bottom: 10px; right: 20px;
+            font-size: 0.8rem; color: #b2bec3;
+            background: none; border: none; cursor: pointer;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .hint-toggle-small:hover { color: var(--primary); }
+
+        /* User Mic Area */
+        #user-stt-display {
+            height: 30px; width: 80%;
+            text-align: center; color: var(--primary);
+            font-weight: bold; font-size: 1.1rem;
+            margin-bottom: 20px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        
+        .game-mode #user-stt-display { color: #fab1a0; }
+
+        #mic-btn {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: var(--primary); color: white;
+            border: none; font-size: 30px;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(108, 92, 231, 0.4);
+            transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #mic-btn:disabled { background: #b2bec3; cursor: not-allowed; box-shadow: none; }
+        #mic-btn.active { background: #ff7675; animation: bounce 1s infinite; }
+
+        /* NEXT BUTTON */
+        #next-btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 50px;
+            background: var(--safe);
+            color: #2d3436;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(85, 239, 196, 0.4);
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce { 0%, 100% {transform: scale(1);} 50% {transform: scale(1.1);} }
+
         .status-text { margin-top: 15px; color: #636e72; font-size: 0.9rem; }
         .game-mode .status-text { color: #bdc3c7; }
+        
+        .hidden { display: none !important; opacity: 0; pointer-events: none; }
 
+        /* Mobile Responsive */
         @media (max-width: 768px) {
             body { flex-direction: column; height: 100vh; }
-            #reading-panel { width: 100%; height: 40%; padding: 20px; border-right: none; border-bottom: 1px solid #ccc; }
+            #reading-panel { width: 100%; height: 40%; border-right: none; border-bottom: 1px solid #ccc; padding: 20px; }
             #interaction-panel { width: 100%; height: 60%; }
-            #ai-avatar { font-size: 40px; }
+            h2 { font-size: 1.5rem; }
+            .passage-content { font-size: 1rem; line-height: 1.6; }
+            #ai-text { font-size: 1.1rem; }
             #mic-btn { width: 60px; height: 60px; font-size: 24px; }
+            #ai-visual-container { width: 100px; height: 100px; margin-bottom: 15px; }
+            #ai-avatar { font-size: 40px; }
         }
     </style>
 </head>
 <body>
-    <!-- Splash -->
+
+    <!-- INTRO SPLASH SCREEN -->
     <div id="splash-screen">
         <div class="splash-content">
             <div class="splash-icon">🐧</div>
@@ -119,12 +448,13 @@
         </div>
     </div>
 
-    <!-- Left: Reading -->
+    <!-- LEFT: PASSAGE -->
     <div id="reading-panel">
         <div class="header-row">
             <h2>Emperor Penguins</h2>
             <button id="toggle-kor-btn" class="toggle-btn">한글 해석 보기</button>
         </div>
+
         <div class="passage-content">
             <span id="s1" class="sent">Emperor penguins are the world’s largest penguins.</span>
             <span id="s2" class="sent">Adult emperor penguins can stand over 1 meter tall.</span>
@@ -152,350 +482,384 @@
             <span id="s21" class="sent">It weighs only about 150 g to 200 g.</span>
             <span id="s22" class="sent">The parents take turns feeding and caring for their chick until it’s big enough to be independent.</span>
         </div>
+
         <div id="korean-trans">
-            (전체 해석 내용 생략 - 기존과 동일)
+            <strong>[전체 해석]</strong><br><br>
+            황제펭귄은 세계에서 가장 큰 펭귄입니다. 다 자란 황제펭귄은 키가 1미터가 넘을 수 있습니다. 하지만 알에서 이렇게 크게 자라기 위해서, 황제펭귄은 부모의 많은 헌신적인 노력이 필요합니다.<br><br>
+            매년 겨울, 엄마 펭귄은 딱 하나의 알을 낳습니다. 엄마는 알을 아빠에게 건네줍니다. 그리고 먹이를 찾으러 바다로 긴 여행을 떠납니다. 아빠는 알을 발 위에 올려놓습니다. 그는 특별한 피부 주름으로 알을 덮습니다. 이것을 '육아낭(brood pouch)'이라고 부릅니다. 아빠는 매우 조심해야 합니다. 알이 얼음 땅에 닿으면 몇 분 안에 얼어버릴 것입니다.<br><br>
+            아빠는 알이 부화할 때까지 두 달 동안 얼어붙을 듯한 추위 속에서 가만히 서 있습니다. 알은 육아낭 안에서 약 38도(°C)로 따뜻하게 유지됩니다. 남극의 외부 온도는 영하 35도(−35 °C) 아래로 떨어질 수 있습니다. 추위를 견디기 위해, 아빠들은 꽉 뭉쳐서 "허들(huddle)"을 만들고 체온을 나눕니다. 이 기간 동안, 아빠는 아무것도 먹지 않습니다. 그는 살아남기 위해 체지방을 사용합니다.<br><br>
+            마침내, 알이 부화합니다. 엄마는 새끼를 위한 먹이를 가지고 돌아옵니다. 새끼는 매우 작습니다. 무게는 겨우 150g에서 200g 정도입니다. 부모는 새끼가 독립할 수 있을 만큼 클 때까지 번갈아 가며 먹이를 주고 돌봅니다.
         </div>
     </div>
 
-    <!-- Right: Interaction -->
+    <!-- RIGHT: INTERACTION -->
     <div id="interaction-panel">
         <div id="setup-bar">
-            <input type="password" id="api-key-input" placeholder="OpenAI API Key (Leave empty to use Server)" />
-            <button id="ready-btn">Login & Start</button>
+            <!-- No input field needed, direct start -->
+            <button id="ready-btn">Start Survival Game</button>
         </div>
 
+        <!-- NEW: Game HUD (Hidden initially) -->
         <div id="game-hud" style="display:none;">
             <div class="hud-item"><i class="fas fa-flag"></i> Stage: <span id="stage-val" class="hud-value">Start</span></div>
             <div class="hud-item"><i class="fas fa-egg"></i> Egg: <span id="egg-val" class="hud-value">Safe</span></div>
         </div>
 
+        <!-- AI Interface (Hidden initially) -->
         <div id="ai-interface">
             <div id="ai-visual-container">
-                <div id="ai-avatar"><i class="fas fa-egg"></i></div>
+                <div id="ai-avatar"><i class="fas fa-egg"></i></div> <!-- EGG Icon for Survival -->
                 <div class="ring"></div>
             </div>
+
             <div class="bubble-box">
                 <div id="ai-text">...</div>
+                
                 <div id="ai-kor-hint"></div>
-                <button id="hint-btn" class="hint-toggle-small hidden"><i class="fas fa-language"></i> 한글 보기</button>
+                <button id="hint-btn" class="hint-toggle-small hidden">
+                    <i class="fas fa-language"></i> 한글 보기
+                </button>
             </div>
+
             <div id="user-stt-display"></div>
+
             <button id="mic-btn" disabled><i class="fas fa-microphone"></i></button>
-            <button id="next-btn" class="hidden">Next Activity &rarr;</button>
+            <button id="next-btn" class="hidden">Next Activity &rarr;</button> <!-- Next Button Added -->
+            
             <div class="status-text" id="status-text">Ready</div>
         </div>
     </div>
 
     <script>
-        let apiKey = '';
+        // --- Configuration & State ---
         let messages = [];
         let recognition;
         let isRecogActive = false;
         let isAIProcessing = false;
-        let useProxy = false; // 서버 사용 모드
 
+        // --- DOM Elements ---
         const ui = {
-            splash: document.getElementById('splash-screen'),
-            enter: document.getElementById('enter-btn'),
+            splashScreen: document.getElementById('splash-screen'),
+            enterBtn: document.getElementById('enter-btn'),
             setupBar: document.getElementById('setup-bar'),
-            apiKeyInput: document.getElementById('api-key-input'),
             readyBtn: document.getElementById('ready-btn'),
-            panel: document.getElementById('interaction-panel'),
-            interface: document.getElementById('ai-interface'),
-            hud: document.getElementById('game-hud'),
-            stage: document.getElementById('stage-val'),
-            egg: document.getElementById('egg-val'),
+            interactionPanel: document.getElementById('interaction-panel'),
+            aiInterface: document.getElementById('ai-interface'),
+            gameHud: document.getElementById('game-hud'),
+            stageVal: document.getElementById('stage-val'),
+            eggVal: document.getElementById('egg-val'),
             aiText: document.getElementById('ai-text'),
-            aiHint: document.getElementById('ai-kor-hint'),
+            aiKorHint: document.getElementById('ai-kor-hint'),
             hintBtn: document.getElementById('hint-btn'),
-            mic: document.getElementById('mic-btn'),
+            micBtn: document.getElementById('mic-btn'),
             nextBtn: document.getElementById('next-btn'),
-            stt: document.getElementById('user-stt-display'),
-            status: document.getElementById('status-text'),
+            sttDisplay: document.getElementById('user-stt-display'),
+            statusText: document.getElementById('status-text'),
             avatar: document.getElementById('ai-avatar'),
-            toggleKor: document.getElementById('toggle-kor-btn'),
-            korTrans: document.getElementById('korean-trans')
+            toggleKorBtn: document.getElementById('toggle-kor-btn'),
+            koreanTrans: document.getElementById('korean-trans')
         };
 
+        // --- System Prompt for Cinematic Survival ---
         const SURVIVAL_PROMPT = `
 You are the Narrator of a "Super Dad Survival" adventure.
 Role: Narrator (Dramatic, Cinematic, Friendly).
 User: Father Emperor Penguin.
 
 SCENARIO FLOW:
-1. **Intro**: "You are a Father Penguin alone in the cold. The mother passes you the egg.\n\nDo you catch it with your BEAK or your FEET?"
+1. **Intro**: "The wind howls at -30°C. *Whoosh!* You are a Father Penguin alone in the cold.\n\nThe mother passes you the precious egg.\n\n**Do you catch it with your BEAK or your FEET?**"
 2. **Crisis 1 (The Drop)**:
-   - If User says "Feet": "[STAGE: 1/3] Safe! Phew. You cover it with your brood pouch.\n\nNow, a blizzard is coming! Do you stand ALONE or join the HUDDLE?"
+   - If User says "Feet" (or similar): "[STAGE: 1/3] Safe! Phew. You cover it with your brood pouch.\n\nNow, a blizzard is coming! **Do you stand ALONE or join the HUDDLE?**"
    - If User says "Beak" or "Ice": "OH NO! The ice is too cold! [HIGHLIGHT: s11] Look at the highlighted text. The egg freezes in minutes on ice. Try again!"
+
 3. **Crisis 2 (The Blizzard)**: 
-   - If User says "Huddle": "[STAGE: 2/3] Smart choice! You share body heat with other dads. But... it has been 2 months. You are starving.\n\nDo you LEAVE to find fish or WAIT?"
+   - If User says "Huddle": "[STAGE: 2/3] Smart choice! You share body heat with other dads. But... it has been 2 months. You are starving.\n\n**Do you LEAVE to find fish or WAIT?**"
    - If User says "Alone": "You are freezing... You turn into an ice statue. [HIGHLIGHT: s15] Look at the highlighted text. Fathers must form a huddle to endure the cold. Try again!"
+
 4. **Crisis 3 (The Hunger)**: 
    - If User says "Wait" or "Body fat": "[STAGE: 3/3] You use your body fat to survive. You are weak but the egg is safe!" -> Move to Ending.
    - If User says "Fish" or "Leave": "You leave the egg? Oh no! The baby has no warmth. [HIGHLIGHT: s16] Look at the highlighted text. The father doesn't eat anything. Try again!"
+
 5. **Ending**: "[ENDING] Crack! The egg hatches! The mother returns with food. You did it, Super Dad! You saved the baby. Congratulations!"
 
 CRITICAL RULES:
 1. Speak ENGLISH ONLY in the main text.
-2. **WRONG ANSWER**: Do NOT give the answer directly. Use [HIGHLIGHT: s#] to point to evidence and ask to try again.
-3. **CORRECT ANSWER**: Praise the user and move to next stage.
-4. Do NOT use markdown bolding (**).
+2. Be dramatic with sound effects (e.g., *Crack!*, *Whoosh!*).
+3. **WRONG ANSWER**: Do NOT give the answer directly. Use [HIGHLIGHT: s#] to point to evidence and ask to try again.
+4. **CORRECT ANSWER**: Praise the user and move to next stage.
+5. Do NOT use markdown bolding (**).
 
 OUTPUT FORMAT: ENGLISH_TEXT /// KOREAN_TRANSLATION
 `;
 
-        // --- Event Listeners ---
-        ui.enter.addEventListener('click', () => { ui.splash.style.opacity = '0'; setTimeout(() => ui.splash.style.display = 'none', 600); });
-        
-        ui.toggleKor.addEventListener('click', () => {
-            const isHidden = ui.korTrans.style.display !== 'block';
-            ui.korTrans.style.display = isHidden ? 'block' : 'none';
-            ui.toggleKor.textContent = isHidden ? '한글 해석 숨기기' : '한글 해석 보기';
-            ui.toggleKor.classList.toggle('active', isHidden);
-            if(isHidden) setTimeout(() => ui.korTrans.scrollIntoView({behavior:"smooth"}), 100);
+        // --- 1. Event Listeners ---
+
+        // Splash Screen Interaction
+        ui.enterBtn.addEventListener('click', () => {
+            ui.splashScreen.style.opacity = '0';
+            setTimeout(() => {
+                ui.splashScreen.style.display = 'none';
+            }, 600);
         });
 
+        // Toggle Korean Passage Translation
+        ui.toggleKorBtn.addEventListener('click', () => {
+            const isHidden = ui.koreanTrans.style.display !== 'block';
+            ui.koreanTrans.style.display = isHidden ? 'block' : 'none';
+            ui.toggleKorBtn.textContent = isHidden ? '한글 해석 숨기기' : '한글 해석 보기';
+            ui.toggleKorBtn.classList.toggle('active', isHidden);
+            if(isHidden) setTimeout(() => ui.koreanTrans.scrollIntoView({behavior: "smooth"}), 100);
+        });
+
+        // Toggle AI Korean Hint Bubble
         ui.hintBtn.addEventListener('click', () => {
-            const isHidden = ui.aiHint.style.display !== 'block';
-            ui.aiHint.style.display = isHidden ? 'block' : 'none';
+            const isHidden = ui.aiKorHint.style.display !== 'block';
+            ui.aiKorHint.style.display = isHidden ? 'block' : 'none';
             ui.hintBtn.innerHTML = isHidden ? '<i class="fas fa-eye-slash"></i> 한글 숨기기' : '<i class="fas fa-language"></i> 한글 보기';
         });
 
+        // Login / Ready Button -> DIRECT START SURVIVAL
         ui.readyBtn.addEventListener('click', () => {
-            const key = ui.apiKeyInput.value.trim();
-            if (key.startsWith('sk-')) {
-                apiKey = key;
-                useProxy = false;
-            } else if (key === "") {
-                useProxy = true; // Use Netlify Function if empty
-            } else {
-                alert("Invalid Key. Enter a valid key or leave empty to use Server.");
-                return;
-            }
-            
             ui.setupBar.classList.add('hidden');
             startSurvivalGame();
         });
 
+        // Start Survival Game
         function startSurvivalGame() {
-            ui.panel.classList.add('game-mode');
-            ui.hud.style.display = 'flex';
-            ui.interface.style.display = 'flex';
-            ui.avatar.classList.add('survival-mode');
+            ui.interactionPanel.classList.add('game-mode'); // Dark Theme
+            ui.gameHud.style.display = 'flex'; // Show HUD
+            ui.aiInterface.style.display = 'flex'; // Show AI Interface
+            ui.avatar.classList.add('survival-mode'); // Add game styling
             
-            initSpeech();
+            initSpeechRecognition();
+            
             messages = [{ role: "system", content: SURVIVAL_PROMPT }]; 
-            processAI();
+            processAI(); // Start conversation
         }
 
-        ui.mic.addEventListener('click', () => {
+        // Mic Toggle
+        ui.micBtn.addEventListener('click', () => {
             if(isAIProcessing) return;
             if(isRecogActive) recognition.stop();
             else recognition.start();
         });
-
+        
+        // Next Button (Restart or Next Activity Placeholder)
         ui.nextBtn.addEventListener('click', () => {
-            alert("Activity Complete! Reloading for next student...");
+            alert("Great job! Moving to the next activity...");
             location.reload();
         });
 
-        // --- Logic ---
-        function initSpeech() {
+        // --- 2. Logic Functions ---
+
+        function initSpeechRecognition() {
             if (!('webkitSpeechRecognition' in window)) {
-                alert("Please use Chrome browser."); return;
+                alert("This browser does not support Speech Recognition. Please use Chrome or Edge.");
+                return;
             }
             recognition = new webkitSpeechRecognition();
             recognition.lang = 'en-US';
-            recognition.continuous = false; // Turn-based
             recognition.interimResults = true;
-            recognition.maxAlternatives = 1;
+            recognition.continuous = false;
 
             recognition.onstart = () => {
                 isRecogActive = true;
-                ui.mic.classList.add('active');
-                ui.status.textContent = "Listening...";
-                ui.stt.textContent = "...";
+                ui.micBtn.classList.add('active');
+                ui.statusText.textContent = "Listening...";
+                ui.sttDisplay.textContent = "...";
             };
 
-            recognition.onresult = (e) => {
-                const txt = Array.from(e.results).map(r => r[0].transcript).join('');
-                ui.stt.textContent = txt;
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+                ui.sttDisplay.textContent = transcript;
             };
 
             recognition.onend = () => {
                 isRecogActive = false;
-                ui.mic.classList.remove('active');
-                const txt = ui.stt.textContent;
-                if(txt && txt !== '...' && !isAIProcessing) {
-                    handleUserAudio(txt);
+                ui.micBtn.classList.remove('active');
+                const text = ui.sttDisplay.textContent;
+                
+                if (text && text !== "..." && !isAIProcessing) {
+                    handleUserAudio(text);
                 } else {
-                    ui.status.textContent = "Click mic to speak";
+                    ui.statusText.textContent = "Click mic to speak";
                 }
             };
             
-            recognition.onerror = (e) => {
-                console.error(e);
-                ui.status.textContent = "Error. Try again.";
-                ui.mic.classList.remove('active');
+            // Error Handling for STT
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error", event.error);
+                ui.statusText.textContent = "Error: " + event.error;
+                ui.micBtn.classList.remove('active');
                 isRecogActive = false;
             };
         }
 
-        async function handleUserAudio(txt) {
+        async function handleUserAudio(text) {
             isAIProcessing = true;
-            ui.mic.disabled = true;
-            ui.status.textContent = "Thinking...";
+            ui.micBtn.disabled = true;
+            ui.statusText.textContent = "Thinking...";
             ui.avatar.classList.add('thinking');
-            messages.push({ role: "user", content: txt });
+            
+            messages.push({ role: "user", content: text });
             await processAI();
         }
 
         async function processAI() {
             try {
-                let responseData;
+                // 1. Text Request (Using Netlify Function Proxy)
+                // Always use the proxy since the key is in the server environment
+                const resp = await fetch('/.netlify/functions/openai_proxy', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        type: 'chat',
+                        messages: messages
+                    })
+                });
                 
-                // 1. Text Request
-                if (useProxy) {
-                    const resp = await fetch('/.netlify/functions/openai_proxy', {
-                        method: 'POST',
-                        body: JSON.stringify({ type: 'chat', messages: messages })
-                    });
-                    if(!resp.ok) throw new Error("Server Error");
-                    responseData = await resp.json();
-                } else {
-                    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                        body: JSON.stringify({ model: "gpt-4o-mini", messages: messages, max_tokens: 200 })
-                    });
-                    responseData = await resp.json();
+                if (!resp.ok) {
+                    throw new Error(`Server Error: ${resp.status}`);
                 }
+                
+                const data = await resp.json();
+                if(data.error) throw new Error(data.error.message);
 
-                if(responseData.error) throw new Error(responseData.error.message);
-                const content = responseData.choices[0].message.content;
+                const content = data.choices[0].message.content;
                 messages.push({ role: "assistant", content: content });
 
-                // Parse
+                // Parse Content
                 let [engText, korText] = content.split('///');
                 engText = engText ? engText.trim() : "";
                 korText = korText ? korText.trim() : "";
 
-                // Logic: Highlight & Animation
+                // Highlights & Game Over Logic
                 const hMatch = engText.match(/\[HIGHLIGHT:\s*(s\d+)\]/);
                 if(hMatch) {
                     highlightSentence(hMatch[1]);
-                    // Danger
+                    // Wrong Answer (Crisis) Animation
                     ui.avatar.classList.add('danger');
-                    ui.egg.textContent = "DANGER!";
-                    ui.egg.style.color = "#ff7675";
+                    ui.eggVal.textContent = "DANGER!";
+                    ui.eggVal.style.color = "#ff7675";
                     setTimeout(() => ui.avatar.classList.remove('danger'), 1000);
                     engText = engText.replace(/\[HIGHLIGHT:\s*s\d+\]/, '');
                 } else {
                     clearHighlights();
                 }
-
+                
+                // Stage Extraction (Success)
                 const sMatch = engText.match(/\[STAGE:\s*([^\]]+)\]/);
                 if(sMatch) {
-                    ui.stage.textContent = sMatch[1];
+                    ui.stageVal.textContent = sMatch[1];
                     engText = engText.replace(/\[STAGE:\s*[^\]]+\]/, '');
-                    // Safe
+                    
+                    // Safe Animation
                     ui.avatar.classList.add('safe');
-                    ui.egg.textContent = "Safe";
-                    ui.egg.style.color = "#55efc4";
+                    ui.eggVal.textContent = "Safe";
+                    ui.eggVal.style.color = "#55efc4";
                     setTimeout(() => ui.avatar.classList.remove('safe'), 2000);
                 }
 
+                // Ending Hatching Animation
                 if(engText.includes("[ENDING]")) {
                     ui.avatar.classList.add('hatching');
-                    ui.avatar.innerHTML = '<span style="font-size: 80px;">🐧</span>';
+                    // Penguin Emoji for the hatching animation
+                    ui.avatar.innerHTML = '<span style="font-size: 80px;">🐧</span>'; 
                     engText = engText.replace("[ENDING]", "");
-                    ui.egg.textContent = "HATCHED!";
-                    ui.egg.style.color = "#55efc4";
+                    ui.eggVal.textContent = "HATCHED!";
+                    ui.eggVal.style.color = "#55efc4";
                     
-                    ui.mic.classList.add('hidden');
-                    ui.status.style.display = 'none';
+                    // Hide Mic, Show Next Button
+                    ui.micBtn.classList.add('hidden');
+                    ui.statusText.style.display = 'none';
                     ui.nextBtn.classList.remove('hidden');
                 }
 
+                // Clean Text (Ensure English Only for TTS/Display)
                 const cleanEngText = engText.replace(/[가-힣]/g, "").trim();
 
-                // UI Update
-                ui.aiText.textContent = "...";
-                ui.aiHint.textContent = korText;
-                ui.aiHint.style.display = 'none';
+                // UI Update: Show loading initially
+                ui.aiText.textContent = "..."; 
+                ui.aiKorHint.textContent = korText;
+                ui.aiKorHint.style.display = 'none';
                 ui.hintBtn.classList.remove('hidden');
                 ui.hintBtn.innerHTML = '<i class="fas fa-language"></i> 한글 보기';
+                
                 ui.avatar.classList.remove('thinking');
-                ui.status.textContent = "Preparing voice...";
+                ui.statusText.textContent = "Preparing voice...";
 
-                // 2. Audio Request
-                let audioUrl;
-                if (useProxy) {
-                    const ttsResp = await fetch('/.netlify/functions/openai_proxy', {
-                        method: 'POST',
-                        body: JSON.stringify({ type: 'tts', input: cleanEngText })
-                    });
-                    const blob = await ttsResp.blob();
-                    audioUrl = URL.createObjectURL(blob);
-                } else {
-                    const ttsResp = await fetch('https://api.openai.com/v1/audio/speech', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                        body: JSON.stringify({ model: "tts-1", input: cleanEngText, voice: "nova", speed: 0.9 })
-                    });
-                    const blob = await ttsResp.blob();
-                    audioUrl = URL.createObjectURL(blob);
-                }
+                // 2. Audio Generation (TTS via Proxy)
+                const ttsResp = await fetch('/.netlify/functions/openai_proxy', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        type: 'tts',
+                        input: cleanEngText
+                    })
+                });
+                
+                if (!ttsResp.ok) throw new Error("TTS Error");
+                
+                const blob = await ttsResp.blob();
+                const audio = new Audio(URL.createObjectURL(blob));
 
-                // Play
-                const audio = new Audio(audioUrl);
-                ui.status.textContent = "Speaking...";
+                // Play & Sync
+                ui.statusText.textContent = "Speaking...";
                 ui.avatar.classList.add('speaking');
                 
                 audio.play().then(() => {
+                    // Typewriter effect starts only when audio plays
                     typeWriter(cleanEngText, ui.aiText);
-                }).catch(console.error);
+                }).catch(e => console.error(e));
 
                 audio.onended = () => {
                     ui.avatar.classList.remove('speaking');
                     if (!ui.nextBtn.classList.contains('hidden')) {
-                         ui.status.textContent = "Activity Complete";
+                         ui.statusText.textContent = "Activity Complete";
                     } else {
-                         ui.status.textContent = "Click mic to reply";
-                         ui.mic.disabled = false;
+                         ui.statusText.textContent = "Click mic to reply";
+                         ui.micBtn.disabled = false;
                     }
                     isAIProcessing = false;
                 };
 
-            } catch (e) {
-                console.error(e);
-                ui.aiText.textContent = "Error: " + e.message;
+            } catch (error) {
+                console.error(error);
+                ui.aiText.textContent = "Error: " + error.message;
                 ui.avatar.classList.remove('thinking');
-                ui.mic.disabled = false;
+                ui.micBtn.disabled = false;
                 isAIProcessing = false;
             }
         }
 
-        // Helpers
+        // --- 3. Helper Functions ---
+
         function highlightSentence(id) {
             clearHighlights();
             const el = document.getElementById(id);
-            if(el) { el.classList.add('highlight'); el.scrollIntoView({behavior:'smooth', block:'center'}); }
+            if(el) {
+                el.classList.add('highlight');
+                el.scrollIntoView({behavior:'smooth', block:'center'});
+            }
         }
-        function clearHighlights() { document.querySelectorAll('.sent').forEach(e => e.classList.remove('highlight')); }
-        
-        function typeWriter(text, el) {
-            el.innerHTML = '';
+
+        function clearHighlights() {
+            document.querySelectorAll('.sent').forEach(el => el.classList.remove('highlight'));
+        }
+
+        function typeWriter(text, element) {
+            element.innerHTML = ''; // Clear previous content
             let i = 0;
+            const speed = 40; 
+            
             function type() {
                 if (i < text.length) {
-                    el.innerHTML += text.charAt(i);
+                    element.innerHTML += text.charAt(i);
                     i++;
-                    setTimeout(type, 40);
+                    setTimeout(type, speed);
                 }
             }
             type();
         }
+
     </script>
 </body>
 </html>
