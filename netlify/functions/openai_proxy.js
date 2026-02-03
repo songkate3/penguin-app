@@ -1,5 +1,3 @@
-const fetch = require('node-fetch');
-
 exports.handler = async function(event, context) {
     // 1. 보안: POST 요청만 허용
     if (event.httpMethod !== 'POST') {
