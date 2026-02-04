@@ -477,11 +477,12 @@
             // Display Text
             ui.aiText.textContent = feedbackData.text;
 
-            // Play Audio
+            // Play Audio and Wait
+            let audioPromise;
             if (feedbackData.audio) {
-                playAudio(feedbackData.audio);
+                audioPromise = playAudio(feedbackData.audio);
             } else {
-                speakFallback(feedbackData.text);
+                audioPromise = speakFallback(feedbackData.text);
             }
 
             // Update Game State
@@ -490,17 +491,18 @@
                 ui.eggVal.textContent = "Safe";
                 ui.eggVal.style.color = "var(--safe)";
                 
-                if (currentStage === scenarios.length - 1) {
-                     setTimeout(() => {
-                        triggerEnding();
-                    }, 4000);
-                } else {
+                // Wait for audio to finish before transition
+                audioPromise.then(() => {
                     setTimeout(() => {
-                        currentStage++;
-                        currentAttempts = 0;
-                        updateUIForStage();
-                    }, 4000); 
-                }
+                        if (currentStage === scenarios.length - 1) {
+                            triggerEnding();
+                        } else {
+                            currentStage++;
+                            currentAttempts = 0;
+                            updateUIForStage();
+                        }
+                    }, 1000); // 1s buffer
+                });
             } else {
                 triggerPenalty(scenario);
             }
@@ -509,7 +511,7 @@
         function triggerEnding() {
             const endMsg = "Crack! The egg hatches! A baby penguin is born.";
             ui.aiText.textContent = endMsg;
-            speakFallback(endMsg); // Can use API here too if we want
+            speakFallback(endMsg); 
             
             ui.avatar.classList.add('hatching');
             
@@ -598,38 +600,66 @@
 
         // --- 6. Audio Player (for Nova) ---
         function playAudio(audioSrc) {
-            if (isClassroomMode) return;
-            
-            const audio = new Audio(audioSrc);
-            ui.avatar.classList.add('speaking');
-            
-            audio.onended = () => {
-                ui.avatar.classList.remove('speaking');
-            };
-            
-            audio.play().catch(e => console.error("Audio play error:", e));
+            return new Promise((resolve) => {
+                if (isClassroomMode) {
+                    resolve();
+                    return;
+                }
+                
+                const audio = new Audio(audioSrc);
+                ui.avatar.classList.add('speaking');
+                
+                audio.onended = () => {
+                    ui.avatar.classList.remove('speaking');
+                    resolve();
+                };
+                
+                audio.onerror = () => {
+                    console.error("Audio playback error");
+                    resolve();
+                };
+                
+                audio.play().catch(e => {
+                    console.error("Audio play error:", e);
+                    resolve();
+                });
+            });
         }
 
         // --- 7. Fallback TTS (Browser) ---
         function speakFallback(text) {
-            if (isClassroomMode) return;
-            window.speechSynthesis.cancel(); 
-            const ut = new SpeechSynthesisUtterance(text);
-            ut.lang = 'en-US';
-            ut.rate = 0.9; 
-            ut.pitch = 1.0; 
-            
-            const voices = window.speechSynthesis.getVoices();
-            const femaleVoice = voices.find(v => v.name.includes('Google US English')) || 
-                                voices.find(v => v.name.includes('Zira')) ||
-                                voices.find(v => v.name.includes('Samantha')) ||
-                                voices.find(v => v.name.toLowerCase().includes('female'));
-            
-            if (femaleVoice) ut.voice = femaleVoice;
+            return new Promise((resolve) => {
+                if (isClassroomMode) {
+                    resolve();
+                    return;
+                }
+                window.speechSynthesis.cancel(); 
+                const ut = new SpeechSynthesisUtterance(text);
+                ut.lang = 'en-US';
+                ut.rate = 0.9; 
+                ut.pitch = 1.0; 
+                
+                const voices = window.speechSynthesis.getVoices();
+                const femaleVoice = voices.find(v => v.name.includes('Google US English')) || 
+                                    voices.find(v => v.name.includes('Zira')) ||
+                                    voices.find(v => v.name.includes('Samantha')) ||
+                                    voices.find(v => v.name.toLowerCase().includes('female'));
+                
+                if (femaleVoice) ut.voice = femaleVoice;
 
-            window.speechSynthesis.speak(ut);
-            ui.avatar.classList.add('speaking');
-            ut.onend = () => ui.avatar.classList.remove('speaking');
+                ut.onend = () => {
+                    ui.avatar.classList.remove('speaking');
+                    resolve();
+                };
+                
+                ut.onerror = () => {
+                    ui.avatar.classList.remove('speaking');
+                    resolve();
+                };
+
+                window.speechSynthesis.speak(ut);
+                ui.avatar.classList.add('speaking');
+            });
         }
 
         // --- 8. Penalty & Input Logic ---
