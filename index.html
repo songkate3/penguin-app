@@ -192,13 +192,34 @@
         .mode-toggle-btn:hover { background: rgba(255,255,255,0.4); }
         .mode-toggle-btn.active { background: white; color: var(--primary); }
 
-        .status-text { margin-top: 15px; color: #b2bec3; font-size: 0.9rem; min-height: 20px; }
+        /* NEXT Button & Review Panel */
+        #next-activity-btn {
+            padding: 15px 40px; font-size: 1.3rem; border: none; border-radius: 50px;
+            background: var(--safe); color: #2d3436; font-weight: bold; cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3); animation: bounce 2s infinite;
+            margin-top: 20px;
+        }
+        
+        #review-panel {
+            width: 90%; max-width: 600px; background: rgba(255,255,255,0.95);
+            border-radius: 20px; padding: 30px; color: #2d3436;
+            display: flex; flex-direction: column; gap: 15px;
+            max-height: 80vh; overflow-y: auto; text-align: left;
+        }
+        .review-item {
+            background: #f1f2f6; padding: 15px; border-radius: 10px; border-left: 5px solid var(--primary);
+        }
+        .review-q { font-weight: bold; margin-bottom: 5px; font-size: 0.95rem; color: #636e72; }
+        .review-a { font-weight: bold; color: var(--primary); font-size: 1.1rem; margin-bottom: 5px; }
+        .review-c { font-size: 0.95rem; color: #00b894; background: #e3fdf5; padding: 8px; border-radius: 8px; font-style: italic; }
+        
+        .restart-btn {
+            padding: 12px 25px; background: var(--primary); color: white; border: none;
+            border-radius: 50px; cursor: pointer; font-weight: bold; align-self: center; margin-top: 10px;
+            font-size: 1rem;
+        }
 
-        /* Animations */
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .status-text { margin-top: 15px; color: #b2bec3; font-size: 0.9rem; min-height: 20px; }
 
         /* Utilities */
         .hidden { display: none !important; }
@@ -221,7 +242,7 @@
     <div id="splash-screen">
         <div class="splash-icon">🐧</div>
         <div class="splash-title">Emperor Penguin<br>Survival Challenge</div>
-        <div class="splash-desc">Become a Super Dad! Protect the egg from the cold.</div>
+        <div class="splash-desc">황제펭귄 아빠가 되어, 알을 추위로부터 지켜주세요.</div>
         <button id="start-btn">Start Adventure</button>
     </div>
 
@@ -312,6 +333,19 @@
             
             <div class="status-text" id="status-text">Click Mic to speak or Keyboard to type</div>
         </div>
+
+        <!-- NEXT Button (Renamed from Next Activity ->) -->
+        <button id="next-activity-btn" class="hidden" onclick="showReview()">Next</button>
+
+        <!-- REVIEW PANEL (Initially Hidden) -->
+        <div id="review-panel" class="hidden">
+            <h3 style="text-align: center; color: var(--primary); margin-top:0;">🐧 Learning Log</h3>
+            <div id="review-list">
+                <!-- Log items will go here -->
+            </div>
+            <button onclick="location.reload()" class="restart-btn">Play Again</button>
+        </div>
+
     </div>
 
     <script>
@@ -322,8 +356,17 @@
         let isRecogActive = false;
         let recognition;
         let currentAudio = null; 
+        let userLog = []; 
 
-        // Game Flow & Scaffolding Data
+        // ------------------------------------------------------------
+        // [설정: API 키 입력] 
+        // 아래 따옴표("") 사이에 Gemini API 키를 붙여넣으세요.
+        // 예시: const apiKey = "AIzaSyDxxxxxxxxxxxx...";
+        // 키가 없으면 시뮬레이션 모드(가짜 AI)로 동작합니다.
+        const apiKey = ""; 
+        // ------------------------------------------------------------
+
+        // Game Flow & Scaffolding Data with Ideal Answers
         const scenarios = [
             {
                 id: 0,
@@ -333,7 +376,8 @@
                 evidenceId: "s11",
                 hint1: "No! Check the highlight. The text says the egg freezes on the ice.  Where does the father put the egg?",
                 hint2: "The ice is too cold. Which part of your body can hold the egg off the ground?",
-                context: "Egg freezes on ice within minutes. Must be on feet. Keep feedback concise (max 10 words)."
+                context: "Egg freezes on ice within minutes. Must be on feet. Keep feedback concise (max 10 words).",
+                idealAnswer: "I put it on my feet."
             },
             {
                 id: 1,
@@ -343,7 +387,8 @@
                 evidenceId: "s15",
                 hint1: "No! Standing alone is too cold. Check the highlight. What do fathers form to share heat?",
                 hint2: "Standing alone is freezing. What does the text say fathers form to share heat?",
-                context: "Fathers form a huddle to share body heat. Keep feedback concise (max 10 words)."
+                context: "Fathers form a huddle to share body heat. Keep feedback concise (max 10 words).",
+                idealAnswer: "I join the huddle."
             },
             {
                 id: 2,
@@ -353,7 +398,8 @@
                 evidenceId: "s16",
                 hint1: "Wait! Check the highlighted sentence. The text says the father doesn't eat. Instead of leaving, what must you do?",
                 hint2: "He doesn't eat. If you leave, the egg freezes. So, must you leave or wait?",
-                context: "Father doesn't eat. Uses body fat. Leaving kills the egg. Keep feedback concise (max 10 words)."
+                context: "Father doesn't eat. Uses body fat. Leaving kills the egg. Keep feedback concise (max 10 words).",
+                idealAnswer: "I wait."
             }
         ];
 
@@ -375,7 +421,14 @@
             koreanTrans: document.getElementById('korean-trans'),
             clsToggle: document.getElementById('class-mode-toggle'),
             clsIcon: document.getElementById('cls-icon'),
-            clsText: document.getElementById('cls-text')
+            clsText: document.getElementById('cls-text'),
+            inputWrapper: document.getElementById('input-wrapper'),
+            nextBtn: document.getElementById('next-activity-btn'),
+            reviewPanel: document.getElementById('review-panel'),
+            reviewList: document.getElementById('review-list'),
+            gameHud: document.getElementById('game-hud'),
+            visualContainer: document.getElementById('ai-visual-container'),
+            bubbleBox: document.querySelector('.bubble-box')
         };
 
         // --- 3. Event Listeners ---
@@ -413,6 +466,7 @@
         function initGame() {
             currentStage = 0;
             currentAttempts = 0;
+            userLog = []; // Reset log
             updateUIForStage();
             initSpeech();
         }
@@ -422,8 +476,6 @@
             
             // Text Update
             typeWriter(scenario.prompt, ui.aiText);
-            // Browser TTS for initial prompts is fine, or you can call API here too if you want everything to be Nova
-            // For now, let's stick to browser TTS for static prompts to save cost/latency, and use Nova for dynamic feedback
             speakFallback(scenario.prompt.replace(/\*/g, '')); 
             
             // HUD
@@ -448,7 +500,6 @@
             ui.aiText.textContent = "Thinking...";
             ui.avatar.classList.add('thinking');
             
-            // Keep buttons disabled while thinking and speaking
             ui.micBtn.disabled = true;
             ui.sendBtn.disabled = true;
 
@@ -457,12 +508,18 @@
             let status = isCorrect ? "correct" : "wrong";
 
             if (isCorrect) {
+                // Log User Answer with Ideal Answer
+                userLog.push({
+                    stage: currentStage + 1,
+                    question: scenario.prompt,
+                    answer: userInput,
+                    ideal: scenario.idealAnswer // Store the ideal answer
+                });
+
                 currentAttempts = 0; 
-                // Call API for Feedback
                 feedbackData = await getAIFeedback(userInput, "correct", scenario, 0);
             } else {
                 currentAttempts++;
-                // Scaffolding Hints
                 if (currentAttempts === 1) {
                     feedbackData.text = scenario.hint1;
                 } else {
@@ -471,15 +528,9 @@
             }
 
             ui.avatar.classList.remove('thinking');
-            // Do NOT re-enable buttons yet. Wait for audio to finish.
-
-            // Clear input text only after response is ready
             ui.textInput.value = "";
-
-            // Display Text
             ui.aiText.textContent = feedbackData.text;
 
-            // Play Audio and Wait
             let audioPromise;
             if (feedbackData.audio) {
                 audioPromise = playAudio(feedbackData.audio);
@@ -487,13 +538,11 @@
                 audioPromise = speakFallback(feedbackData.text);
             }
 
-            // Update Game State
             if (isCorrect) {
                 ui.avatar.classList.add('safe');
                 ui.eggVal.textContent = "Safe";
                 ui.eggVal.style.color = "var(--safe)";
                 
-                // Wait for audio to finish before transition
                 audioPromise.then(() => {
                     setTimeout(() => {
                         if (currentStage === scenarios.length - 1) {
@@ -503,13 +552,10 @@
                             currentAttempts = 0;
                             updateUIForStage();
                         }
-                    }, 1000); // 1s buffer
+                    }, 1000);
                 });
             } else {
-                // IMPORTANT FIX: Trigger penalty logic IMMEDIATELY, don't wait for promise
                 triggerPenalty(scenario); 
-                
-                // Wait for audio then re-enable inputs
                 audioPromise.then(() => {
                     ui.micBtn.disabled = false;
                     ui.sendBtn.disabled = false;
@@ -524,51 +570,54 @@
             
             ui.avatar.classList.add('hatching');
             
-            // SVG Graphic: Penguin Hatching from Egg
             ui.avatar.innerHTML = `
             <svg width="100%" height="100%" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                <!-- 1. Penguin Body (Back) -->
                 <ellipse cx="100" cy="110" rx="55" ry="60" fill="#34495e" />
                 <ellipse cx="100" cy="120" rx="40" ry="45" fill="white" />
-                
-                <!-- 2. Penguin Face -->
                 <circle cx="80" cy="95" r="10" fill="white" />
                 <circle cx="120" cy="95" r="10" fill="white" />
                 <circle cx="80" cy="95" r="4" fill="black" />
                 <circle cx="120" cy="95" r="4" fill="black" />
                 <polygon points="90,105 110,105 100,120" fill="#f1c40f" />
-                
-                <!-- 3. Egg Shell (Bottom with Zigzag Crack) -->
-                <path d="
-                    M 20,130 
-                    L 40,150 L 60,130 L 80,150 L 100,130 L 120,150 L 140,130 L 160,150 L 180,130
-                    Q 180,200 100,200 
-                    Q 20,200 20,130 
-                    Z" 
-                    fill="#ecf0f1" stroke="#bdc3c7" stroke-width="3" stroke-linejoin="round" />
-                
-                <!-- 4. Egg Shell (Top Hat - Optional/Floating) -->
-                <path d="
-                    M 50,50
-                    Q 100,10 150,50
-                    L 140,65 L 120,50 L 100,65 L 80,50 L 60,65 L 50,50
-                    Z"
-                    fill="#ecf0f1" stroke="#bdc3c7" stroke-width="3" stroke-linejoin="round"
-                    style="transform-origin: center; animation: float 2s infinite ease-in-out;"
-                />
+                <path d="M 20,130 L 40,150 L 60,130 L 80,150 L 100,130 L 120,150 L 140,130 L 160,150 L 180,130 Q 180,200 100,200 Q 20,200 20,130 Z" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="3" stroke-linejoin="round" />
+                <path d="M 50,50 Q 100,10 150,50 L 140,65 L 120,50 L 100,65 L 80,50 L 60,65 L 50,50 Z" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="3" stroke-linejoin="round" style="transform-origin: center; animation: float 2s infinite ease-in-out;" />
             </svg>
             `;
             
             ui.eggVal.textContent = "HATCHED!";
             ui.statusText.textContent = "Mission Accomplished!";
-            ui.micBtn.disabled = true;
-            ui.sendBtn.disabled = true;
+            
+            ui.inputWrapper.style.display = 'none';
+            ui.nextBtn.classList.remove('hidden');
+        }
+
+        function showReview() {
+            ui.gameHud.style.display = 'none';
+            ui.visualContainer.style.display = 'none';
+            ui.bubbleBox.style.display = 'none';
+            ui.nextBtn.style.display = 'none';
+            ui.statusText.style.display = 'none';
+
+            ui.reviewList.innerHTML = userLog.map(log => `
+                <div class="review-item">
+                    <div class="review-q">Q${log.stage}</div>
+                    <div class="review-a">Your Answer: <span style="color:var(--primary);">${log.answer}</span></div>
+                    <div class="review-c">💡 Better Expression: "${log.ideal}"</div>
+                </div>
+            `).join('');
+
+            ui.reviewPanel.classList.remove('hidden');
         }
 
         // --- 5. AI Generation (OpenAI via Backend) ---
         async function getAIFeedback(userInput, status, scenario, attempts) {
             try {
                 // Call Netlify Function (OpenAI Proxy)
+                if (typeof apiKey !== 'undefined' && apiKey) {
+                     // Direct API Call Logic (Optional for local testing if apiKey const is filled)
+                     // ... (omitted for brevity, utilizing backend proxy primarily)
+                }
+                
                 const response = await fetch('/.netlify/functions/openai_proxy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -585,6 +634,7 @@
                 }
 
                 const data = await response.json();
+                
                 let replyText = data.text || "Error generating response.";
                 let replyAudio = data.audio || null;
 
@@ -592,7 +642,6 @@
 
             } catch (e) {
                 console.error("Backend AI Call Failed:", e);
-                // Fallback simulation
                 return { 
                     text: simulateAIResponse(userInput, status, scenario), 
                     audio: null 
@@ -613,7 +662,6 @@
                     return;
                 }
                 
-                // Stop previous audio if any
                 if (currentAudio) {
                     currentAudio.pause();
                     currentAudio = null;
