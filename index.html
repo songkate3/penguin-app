@@ -135,6 +135,12 @@
             50% { transform: scale(1.2) rotate(10deg); opacity: 1; }
             100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
+        
+        /* Added Float Animation for Egg Shell Hat */
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(5deg); }
+        }
 
         /* Chat Bubble */
         .bubble-box {
@@ -215,7 +221,7 @@
     <div id="splash-screen">
         <div class="splash-icon">🐧</div>
         <div class="splash-title">Emperor Penguin<br>Survival Challenge</div>
-        <div class="splash-desc">황제펭귄 아빠가 되어, 알을 추위로부터 지켜주세요.</div>
+        <div class="splash-desc">Become a Super Dad! Protect the egg from the cold.</div>
         <button id="start-btn">Start Adventure</button>
     </div>
 
@@ -311,7 +317,7 @@
     <script>
         // --- 1. Game State & Logic ---
         let currentStage = 0;
-        let currentAttempts = 0; // Track wrong attempts per stage
+        let currentAttempts = 0; 
         let isClassroomMode = false;
         let isRecogActive = false;
         let recognition;
@@ -415,7 +421,9 @@
             
             // Text Update
             typeWriter(scenario.prompt, ui.aiText);
-            speak(scenario.prompt.replace(/\*/g, '')); 
+            // Browser TTS for initial prompts is fine, or you can call API here too if you want everything to be Nova
+            // For now, let's stick to browser TTS for static prompts to save cost/latency, and use Nova for dynamic feedback
+            speakFallback(scenario.prompt.replace(/\*/g, '')); 
             
             // HUD
             ui.stageVal.textContent = (currentStage + 1) + "/3";
@@ -437,44 +445,51 @@
             ui.micBtn.disabled = true;
             ui.sendBtn.disabled = true;
 
-            // 1. Check Correctness
             let isCorrect = scenario.correctKeywords.some(kw => userInput.toLowerCase().includes(kw));
-            
-            // 2. Feedback Generation
-            let feedbackText = "";
+            let feedbackData = { text: "", audio: null };
             let status = isCorrect ? "correct" : "wrong";
 
             if (isCorrect) {
-                currentAttempts = 0; // Reset for next stage
-                feedbackText = await getAIFeedback(userInput, "correct", scenario, 0);
+                currentAttempts = 0; 
+                // Call API for Feedback
+                feedbackData = await getAIFeedback(userInput, "correct", scenario, 0);
             } else {
                 currentAttempts++;
-                // Select hint based on attempts
+                // Scaffolding Hints
                 if (currentAttempts === 1) {
-                    feedbackText = scenario.hint1; // Scaffolding Level 1
+                    feedbackData.text = scenario.hint1;
                 } else {
-                    feedbackText = scenario.hint2; // Scaffolding Level 2
+                    feedbackData.text = scenario.hint2;
                 }
+                // Note: For hints, we can also generate audio via API if desired, 
+                // but currently we will use fallback TTS for these static hints to save time/cost, 
+                // or you can easily change getAIFeedback to handle hints dynamically.
+                // Let's assume hints are static text for now.
             }
 
             ui.avatar.classList.remove('thinking');
             ui.micBtn.disabled = false;
             ui.sendBtn.disabled = false;
 
-            // Clear input here (when AI responds)
+            // Clear input text only after response is ready
             ui.textInput.value = "";
 
-            // 3. Display & Speak Feedback
-            ui.aiText.textContent = feedbackText;
-            speak(feedbackText);
+            // Display Text
+            ui.aiText.textContent = feedbackData.text;
 
-            // 4. Update Game State
+            // Play Audio
+            if (feedbackData.audio) {
+                playAudio(feedbackData.audio);
+            } else {
+                speakFallback(feedbackData.text);
+            }
+
+            // Update Game State
             if (isCorrect) {
                 ui.avatar.classList.add('safe');
                 ui.eggVal.textContent = "Safe";
                 ui.eggVal.style.color = "var(--safe)";
                 
-                // End Game Check
                 if (currentStage === scenarios.length - 1) {
                      setTimeout(() => {
                         triggerEnding();
@@ -487,18 +502,52 @@
                     }, 4000); 
                 }
             } else {
-                // Wrong / Penalty
                 triggerPenalty(scenario);
             }
         }
 
         function triggerEnding() {
-            const endMsg = "Crack! The egg hatches! The chick is born.";
+            const endMsg = "Crack! The egg hatches! A baby penguin is born.";
             ui.aiText.textContent = endMsg;
-            speak(endMsg);
+            speakFallback(endMsg); // Can use API here too if we want
             
             ui.avatar.classList.add('hatching');
-            ui.avatar.innerHTML = "🐣"; 
+            
+            // SVG Graphic: Penguin Hatching from Egg
+            ui.avatar.innerHTML = `
+            <svg width="100%" height="100%" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <!-- 1. Penguin Body (Back) -->
+                <ellipse cx="100" cy="110" rx="55" ry="60" fill="#34495e" />
+                <ellipse cx="100" cy="120" rx="40" ry="45" fill="white" />
+                
+                <!-- 2. Penguin Face -->
+                <circle cx="80" cy="95" r="10" fill="white" />
+                <circle cx="120" cy="95" r="10" fill="white" />
+                <circle cx="80" cy="95" r="4" fill="black" />
+                <circle cx="120" cy="95" r="4" fill="black" />
+                <polygon points="90,105 110,105 100,120" fill="#f1c40f" />
+                
+                <!-- 3. Egg Shell (Bottom with Zigzag Crack) -->
+                <path d="
+                    M 20,130 
+                    L 40,150 L 60,130 L 80,150 L 100,130 L 120,150 L 140,130 L 160,150 L 180,130
+                    Q 180,200 100,200 
+                    Q 20,200 20,130 
+                    Z" 
+                    fill="#ecf0f1" stroke="#bdc3c7" stroke-width="3" stroke-linejoin="round" />
+                
+                <!-- 4. Egg Shell (Top Hat - Optional/Floating) -->
+                <path d="
+                    M 50,50
+                    Q 100,10 150,50
+                    L 140,65 L 120,50 L 100,65 L 80,50 L 60,65 L 50,50
+                    Z"
+                    fill="#ecf0f1" stroke="#bdc3c7" stroke-width="3" stroke-linejoin="round"
+                    style="transform-origin: center; animation: float 2s infinite ease-in-out;"
+                />
+            </svg>
+            `;
+            
             ui.eggVal.textContent = "HATCHED!";
             ui.statusText.textContent = "Mission Accomplished!";
             ui.micBtn.disabled = true;
@@ -509,7 +558,6 @@
         async function getAIFeedback(userInput, status, scenario, attempts) {
             try {
                 // Call Netlify Function (OpenAI Proxy)
-                // Note: The file name is openai_proxy.js in the backend
                 const response = await fetch('/.netlify/functions/openai_proxy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -526,12 +574,20 @@
                 }
 
                 const data = await response.json();
-                let reply = data.text || "Error generating response.";
-                return reply.replace(/\*/g, '');
+                
+                // data.text and data.audio expected
+                let replyText = data.text || "Error generating response.";
+                let replyAudio = data.audio || null;
+
+                return { text: replyText.replace(/\*/g, ''), audio: replyAudio };
 
             } catch (e) {
                 console.error("Backend AI Call Failed:", e);
-                return simulateAIResponse(userInput, status, scenario);
+                // Fallback simulation
+                return { 
+                    text: simulateAIResponse(userInput, status, scenario), 
+                    audio: null 
+                };
             }
         }
 
@@ -540,13 +596,48 @@
             return "Try again."; 
         }
 
-        // --- 6. Penalty System (Simplified) ---
+        // --- 6. Audio Player (for Nova) ---
+        function playAudio(audioSrc) {
+            if (isClassroomMode) return;
+            
+            const audio = new Audio(audioSrc);
+            ui.avatar.classList.add('speaking');
+            
+            audio.onended = () => {
+                ui.avatar.classList.remove('speaking');
+            };
+            
+            audio.play().catch(e => console.error("Audio play error:", e));
+        }
+
+        // --- 7. Fallback TTS (Browser) ---
+        function speakFallback(text) {
+            if (isClassroomMode) return;
+            window.speechSynthesis.cancel(); 
+            const ut = new SpeechSynthesisUtterance(text);
+            ut.lang = 'en-US';
+            ut.rate = 0.9; 
+            ut.pitch = 1.0; 
+            
+            const voices = window.speechSynthesis.getVoices();
+            const femaleVoice = voices.find(v => v.name.includes('Google US English')) || 
+                                voices.find(v => v.name.includes('Zira')) ||
+                                voices.find(v => v.name.includes('Samantha')) ||
+                                voices.find(v => v.name.toLowerCase().includes('female'));
+            
+            if (femaleVoice) ut.voice = femaleVoice;
+
+            window.speechSynthesis.speak(ut);
+            ui.avatar.classList.add('speaking');
+            ut.onend = () => ui.avatar.classList.remove('speaking');
+        }
+
+        // --- 8. Penalty & Input Logic ---
         function triggerPenalty(scenario) {
             ui.avatar.classList.add('danger');
             ui.eggVal.textContent = "DANGER!";
             ui.eggVal.style.color = "var(--danger)";
 
-            // Highlight Evidence
             document.querySelectorAll('.sent').forEach(el => el.classList.remove('highlight'));
             const evidence = document.getElementById(scenario.evidenceId);
             if (evidence) {
@@ -554,13 +645,11 @@
                 evidence.scrollIntoView({ behavior: "smooth", block: "center" });
             }
             
-            // Allow immediate retry
             setTimeout(() => {
                 ui.avatar.classList.remove('danger');
             }, 2000);
         }
 
-        // --- 7. Hybrid Input (Mic + Text) ---
         function toggleKeyboardInput() {
             const isVisible = ui.textInputRow.style.display === 'flex';
             ui.textInputRow.style.display = isVisible ? 'none' : 'flex';
@@ -620,31 +709,7 @@
             else recognition.start();
         }
 
-        // --- 8. TTS (Browser - Nova Style Optimization) ---
-        function speak(text) {
-            if (isClassroomMode) return;
-            window.speechSynthesis.cancel(); 
-            const ut = new SpeechSynthesisUtterance(text);
-            ut.lang = 'en-US';
-            ut.rate = 0.9; 
-            ut.pitch = 1.0; 
-            
-            const voices = window.speechSynthesis.getVoices();
-            const femaleVoice = voices.find(v => v.name.includes('Google US English')) || 
-                                voices.find(v => v.name.includes('Zira')) ||
-                                voices.find(v => v.name.includes('Samantha')) ||
-                                voices.find(v => v.name.toLowerCase().includes('female'));
-            
-            if (femaleVoice) ut.voice = femaleVoice;
-
-            window.speechSynthesis.speak(ut);
-            ui.avatar.classList.add('speaking');
-            ut.onend = () => ui.avatar.classList.remove('speaking');
-        }
-
-        window.speechSynthesis.onvoiceschanged = () => {
-            // Voices loaded
-        };
+        window.speechSynthesis.onvoiceschanged = () => { };
 
         function typeWriter(text, el) {
             el.innerHTML = "";
