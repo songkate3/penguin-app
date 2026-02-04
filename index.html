@@ -221,7 +221,7 @@
     <div id="splash-screen">
         <div class="splash-icon">🐧</div>
         <div class="splash-title">Emperor Penguin<br>Survival Challenge</div>
-        <div class="splash-desc">황제펭귄 아빠가 되어, 알을 추위로부터 지켜주세요.</div>
+        <div class="splash-desc">Become a Super Dad! Protect the egg from the cold.</div>
         <button id="start-btn">Start Adventure</button>
     </div>
 
@@ -321,6 +321,7 @@
         let isClassroomMode = false;
         let isRecogActive = false;
         let recognition;
+        let currentAudio = null; 
 
         // Game Flow & Scaffolding Data
         const scenarios = [
@@ -332,7 +333,7 @@
                 evidenceId: "s11",
                 hint1: "No! Check the highlight. The text says the egg freezes on the ice.  Where does the father put the egg?",
                 hint2: "The ice is too cold. Which part of your body can hold the egg off the ground?",
-                context: "Egg freezes on ice within minutes. Must be on feet."
+                context: "Egg freezes on ice within minutes. Must be on feet. Keep feedback concise (max 10 words)."
             },
             {
                 id: 1,
@@ -342,7 +343,7 @@
                 evidenceId: "s15",
                 hint1: "No! Standing alone is too cold. Check the highlight. What do fathers form to share heat?",
                 hint2: "Standing alone is freezing. What does the text say fathers form to share heat?",
-                context: "Fathers form a huddle to share body heat."
+                context: "Fathers form a huddle to share body heat. Keep feedback concise (max 10 words)."
             },
             {
                 id: 2,
@@ -352,7 +353,7 @@
                 evidenceId: "s16",
                 hint1: "Wait! Check the highlighted sentence. The text says the father doesn't eat. Instead of leaving, what must you do?",
                 hint2: "He doesn't eat. If you leave, the egg freezes. So, must you leave or wait?",
-                context: "Father doesn't eat. Uses body fat. Leaving kills the egg."
+                context: "Father doesn't eat. Uses body fat. Leaving kills the egg. Keep feedback concise (max 10 words)."
             }
         ];
 
@@ -428,6 +429,10 @@
             // HUD
             ui.stageVal.textContent = (currentStage + 1) + "/3";
             ui.avatar.className = ""; 
+            
+            // Re-enable buttons if they were disabled
+            ui.micBtn.disabled = false;
+            ui.sendBtn.disabled = false;
         }
 
         function handleInputSubmission() {
@@ -442,6 +447,8 @@
             
             ui.aiText.textContent = "Thinking...";
             ui.avatar.classList.add('thinking');
+            
+            // Keep buttons disabled while thinking and speaking
             ui.micBtn.disabled = true;
             ui.sendBtn.disabled = true;
 
@@ -461,15 +468,10 @@
                 } else {
                     feedbackData.text = scenario.hint2;
                 }
-                // Note: For hints, we can also generate audio via API if desired, 
-                // but currently we will use fallback TTS for these static hints to save time/cost, 
-                // or you can easily change getAIFeedback to handle hints dynamically.
-                // Let's assume hints are static text for now.
             }
 
             ui.avatar.classList.remove('thinking');
-            ui.micBtn.disabled = false;
-            ui.sendBtn.disabled = false;
+            // Do NOT re-enable buttons yet. Wait for audio to finish.
 
             // Clear input text only after response is ready
             ui.textInput.value = "";
@@ -504,7 +506,14 @@
                     }, 1000); // 1s buffer
                 });
             } else {
-                triggerPenalty(scenario);
+                // IMPORTANT FIX: Trigger penalty logic IMMEDIATELY, don't wait for promise
+                triggerPenalty(scenario); 
+                
+                // Wait for audio then re-enable inputs
+                audioPromise.then(() => {
+                    ui.micBtn.disabled = false;
+                    ui.sendBtn.disabled = false;
+                });
             }
         }
 
@@ -576,8 +585,6 @@
                 }
 
                 const data = await response.json();
-                
-                // data.text and data.audio expected
                 let replyText = data.text || "Error generating response.";
                 let replyAudio = data.audio || null;
 
@@ -606,20 +613,26 @@
                     return;
                 }
                 
-                const audio = new Audio(audioSrc);
+                // Stop previous audio if any
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
+                }
+
+                currentAudio = new Audio(audioSrc);
                 ui.avatar.classList.add('speaking');
                 
-                audio.onended = () => {
+                currentAudio.onended = () => {
                     ui.avatar.classList.remove('speaking');
                     resolve();
                 };
                 
-                audio.onerror = () => {
+                currentAudio.onerror = () => {
                     console.error("Audio playback error");
                     resolve();
                 };
                 
-                audio.play().catch(e => {
+                currentAudio.play().catch(e => {
                     console.error("Audio play error:", e);
                     resolve();
                 });
